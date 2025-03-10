@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 from LSTM.LSTM_kuroda import LSTMClassification
 from get_dataset import googledrive_download, init_dataset
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # GPUチェック
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -48,6 +49,9 @@ def main():
         labels_np = np.array(labels_list)
         print(labels_np.shape, outputs_np.shape)
         df = generate_sequence_result(outputs_np, labels_np, tactical_action_name_list)
+        # CSVファイルに保存
+        df.to_csv(output_file, index=False)
+        print(f"Output file saved to {output_file}")
 
     else:
         # numpy load
@@ -58,11 +62,7 @@ def main():
         outputs_np = np.array(outputs_list)
         labels_np = np.array(labels_list)
         print(labels_np.shape, outputs_np.shape)
-        df = get_error(outputs_np, labels_np, tactical_action_name_list)
-
-    # CSVファイルに保存
-    df.to_csv(output_file, index=False)
-    print(f"Output file saved to {output_file}")
+        get_error(outputs_np, labels_np, tactical_action_name_list)
 
 
 def evaluate(model, loader):
@@ -92,34 +92,98 @@ def evaluate(model, loader):
 
 
 # modelの評価
-def get_error(outputs_np, labels_np, tactical_action_name_list, half=1):
-    # test_dataによる精度評価
-    # 各列の誤差を計算
-    errors_np = np.abs(outputs_np - labels_np)  # 絶対誤差
-    mean_errors = np.mean(errors_np, axis=0)    # 各列の平均誤差
-    std_errors = np.std(errors_np, axis=0)      # 各列の誤差の標準偏差
+def get_error(outputs_np, labels_np, tactical_action_name_list, output_dir="."):
+    num_actions = labels_np.shape[1]
     
-    # 全体の誤差を計算
-    overall_mean_error = np.mean(errors_np)  # 全体の平均誤差
-    overall_std_error = np.std(errors_np)    # 全体の誤差の標準偏差
-
-    # 結果を出力
-    # データフレームを作成
-    data = {
+    # === 回帰タスクの評価 ===
+    abs_errors = np.abs(outputs_np - labels_np)
+    squared_errors = (outputs_np - labels_np) ** 2
+    
+    mae = np.mean(abs_errors, axis=0)
+    mse = np.mean(squared_errors, axis=0)
+    rmse = np.sqrt(mse)
+    
+    overall_mae = np.mean(abs_errors)
+    overall_mse = np.mean(squared_errors)
+    overall_rmse = np.sqrt(overall_mse)
+    
+    regression_df = pd.DataFrame({
         "Tactical Action": tactical_action_name_list,
-        "Mean Error": mean_errors,
-        "Standard Deviation of Error": std_errors
-    }
-    error_df = pd.DataFrame(data)
-    
-    # 全体の誤差を出力
-    overall_error_data = pd.DataFrame({
-        "Tactical Action": ["Overall"],
-        "Mean Error": [overall_mean_error],
-        "Standard Deviation of Error": [overall_std_error]
+        "MAE": mae,
+        "MSE": mse,
+        "RMSE": rmse
     })
     
-    return pd.concat([error_df, overall_error_data], ignore_index=True)
+    overall_regression_df = pd.DataFrame({
+        "Tactical Action": ["Overall"],
+        "MAE": [overall_mae],
+        "MSE": [overall_mse],
+        "RMSE": [overall_rmse]
+    })
+    
+    regression_df = pd.concat([regression_df, overall_regression_df], ignore_index=True)
+    regression_df.to_csv(f"{output_dir}_regression_metrics.csv", index=False)
+    
+    # === Top-1, Top-2, Top-3 Accuracy ===
+    top1_correct_per_action = np.argmax(outputs_np, axis=1) == np.argmax(labels_np, axis=1)
+    top1_accuracy_per_action = np.mean(top1_correct_per_action, axis=0)
+    
+    top_k_correct = np.zeros((labels_np.shape[0], 3, num_actions))
+    for i in range(labels_np.shape[0]):
+        top_k_preds = np.argsort(outputs_np[i])[-3:][::-1]  # 上位3つの予測
+        for j in range(num_actions):
+            top_k_correct[i, 0, j] = np.argmax(labels_np[i]) in top_k_preds[:1]  # Top-1
+            top_k_correct[i, 1, j] = np.argmax(labels_np[i]) in top_k_preds[:2]  # Top-2
+            top_k_correct[i, 2, j] = np.argmax(labels_np[i]) in top_k_preds[:3]  # Top-3
+    
+    top_accuracies_per_action = np.mean(top_k_correct, axis=0)
+    
+    top_k_df = pd.DataFrame({
+        "Tactical Action": tactical_action_name_list,
+        "Top-1 Accuracy": top_accuracies_per_action[0],
+        "Top-2 Accuracy": top_accuracies_per_action[1],
+        "Top-3 Accuracy": top_accuracies_per_action[2]
+    })
+    
+    overall_top_k_df = pd.DataFrame({
+        "Tactical Action": ["Overall"],
+        "Top-1 Accuracy": [np.mean(top_accuracies_per_action[0])],
+        "Top-2 Accuracy": [np.mean(top_accuracies_per_action[1])],
+        "Top-3 Accuracy": [np.mean(top_accuracies_per_action[2])]
+    })
+    
+    top_k_df = pd.concat([top_k_df, overall_top_k_df], ignore_index=True)
+    top_k_df.to_csv(f"{output_dir}_top_k_accuracy.csv", index=False)
+    
+    # === 分類タスクの評価 ===
+    binarized_labels = (labels_np > 0.50).astype(int)
+    binarized_outputs = (outputs_np > 0.50).astype(int)
+    
+    accuracy = np.mean(binarized_labels == binarized_outputs, axis=0)
+    recall = recall_score(binarized_labels, binarized_outputs, average=None, zero_division=0)
+    precision = precision_score(binarized_labels, binarized_outputs, average=None, zero_division=0)
+    f1 = f1_score(binarized_labels, binarized_outputs, average=None, zero_division=0)
+    
+    classification_df = pd.DataFrame({
+        "Tactical Action": tactical_action_name_list,
+        "Accuracy": accuracy,
+        "Recall": recall,
+        "Precision": precision,
+        "F1-score": f1
+    })
+    
+    overall_classification_df = pd.DataFrame({
+        "Tactical Action": ["Overall"],
+        "Accuracy": [accuracy_score(binarized_labels.flatten(), binarized_outputs.flatten())],
+        "Recall": [recall_score(binarized_labels, binarized_outputs, average="macro", zero_division=0)],
+        "Precision": [precision_score(binarized_labels, binarized_outputs, average="macro", zero_division=0)],
+        "F1-score": [f1_score(binarized_labels, binarized_outputs, average="macro", zero_division=0)]
+    })
+    
+    classification_df = pd.concat([classification_df, overall_classification_df], ignore_index=True)
+    classification_df.to_csv(f"{output_dir}_classification_metrics.csv", index=False)
+    
+    print("Evaluation completed. Metrics saved in CSV files.")
 
 
 def generate_sequence_result(outputs_np, labels_np, tactical_action_name_list, half=1):

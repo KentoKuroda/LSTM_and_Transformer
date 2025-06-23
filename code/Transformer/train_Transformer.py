@@ -4,7 +4,7 @@ from torch import optim
 import time
 import numpy as np
 
-from Transformer_kuroda import TransformerClassification
+from transformer_kuroda import TransformerClassification
 
 from pathlib import Path
 import sys
@@ -27,14 +27,14 @@ def main():
     num_heads = 4  # マルチヘッドアテンションのヘッド数
     num_layers = 2  # Transformerの層の数
     batch_size = 2048
-    num_epochs = 100
-    lr = 0.001
+    num_epochs = 500
+    lr = 0.0001
 
     # 各戦術的行動の名前 
     tactical_action_name_list = ['Build up 1', 'Progression 1', 'Final third 1', 'Counter-attack 1', 'High press 1', 'Mid block 1', 'Low block 1', 'Counter-press 1', 'Recovery 1', 'Build up 2', 'Progression 2', 'Final third 2', 'Counter-attack 2', 'High press 2', 'Mid block 2', 'Low block 2', 'Counter-press 2', 'Recovery 2']
 
     # numpy load
-    sequence_np, label_np = googledrive_download() # _0_or_1, 
+    sequence_np, label_np = googledrive_download(bepro=True) # _0_or_1, 
     print(sequence_np.shape, label_np.shape)
 
     train_loader, val_loader, test_loader = init_dataset(sequence_np, label_np, batch_size)
@@ -45,7 +45,7 @@ def main():
     history, model = train(train_loader, val_loader, test_loader, model, num_epochs, lr)
 
 
-def train(train_loader, valid_loader, test_loader, model, num_epochs, lr, patience=int(20), mode='pretrain'):
+def train(train_loader, valid_loader, test_loader, model, num_epochs, lr, patience=int(20), mode='only_fine_tuning'): # pretrain, fine_tuning, only_fine_tuning
     
     model = model.to(device)
     loss_function = nn.HuberLoss() # SmoothL1, CrossEntropyLoss, HuberLoss
@@ -87,8 +87,8 @@ def train(train_loader, valid_loader, test_loader, model, num_epochs, lr, patien
         if total_valid_loss < best_valid_loss:
             best_valid_loss = total_valid_loss
             no_improvement = 0
-            torch.save(optimizer.state_dict(), f"model/Transformer_model/{mode}_best_optimizer.pth")
-            torch.save(model.state_dict(), f"model/Transformer_model/{mode}_best_params.pth")
+            torch.save(optimizer.state_dict(), f"model/transformer_model/{mode}_best_optimizer.pth")
+            torch.save(model.state_dict(), f"model/transformer_model/{mode}_best_params.pth")
 
         elif no_improvement < int(patience):
             no_improvement = int(no_improvement) + 1

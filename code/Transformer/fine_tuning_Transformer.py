@@ -1,8 +1,8 @@
 import torch
 import argparse
 
-from Transformer_kuroda import TransformerClassification
-from train_Transformer import train
+from transformer_kuroda import TransformerClassification
+from train_transformer import train
 
 from pathlib import Path
 import sys
@@ -16,7 +16,7 @@ print(device)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pretrain_model')
+    parser.add_argument('--best_params')
     return parser.parse_args()
 
 
@@ -24,7 +24,7 @@ def main():
 
     args = parse_arguments()
 
-    pretrained_model_path = args.pretrain_model
+    pretrained_model_path = args.best_params
 
     # the number of players
     num_player = 22
@@ -36,7 +36,7 @@ def main():
     num_layers = 2  # Transformerの層の数
     batch_size = 2048
     num_epochs = 50
-    lr = 0.001
+    lr = 0.0001
 
     # 各戦術的行動の名前 
     tactical_action_name_list = ['Build up 1', 'Progression 1', 'Final third 1', 'Counter-attack 1', 'High press 1', 'Mid block 1', 'Low block 1', 'Counter-press 1', 'Recovery 1', 'Build up 2', 'Progression 2', 'Final third 2', 'Counter-attack 2', 'High press 2', 'Mid block 2', 'Low block 2', 'Counter-press 2', 'Recovery 2']

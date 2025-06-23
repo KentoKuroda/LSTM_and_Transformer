@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import argparse
 from collections import defaultdict
-from Transformer.Transformer_kuroda import TransformerClassification
+from transformer.transformer_kuroda import TransformerClassification
 from get_dataset import googledrive_download, init_dataset
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import precision_recall_curve
@@ -42,7 +42,7 @@ def main():
 
     # 学習済みモデルのロード
     model = TransformerClassification(input_dim, hidden_dim, target_size, num_heads, num_layers)
-    model.load_state_dict(torch.load(f"model/{model_name}_model/fine_tuning_best_params.pth", map_location=device), strict=False)
+    model.load_state_dict(torch.load(f"model/{model_name}_model/only_fine_tuning_best_params.pth", map_location=device), strict=False)
 
     if make_graph:
         sequence_np, label_np = googledrive_download(make_graph=make_graph, bepro=True)
@@ -66,7 +66,7 @@ def main():
         outputs_np = np.array(outputs_list)
         labels_np = np.array(labels_list)
         print(labels_np.shape, outputs_np.shape)
-        get_error(outputs_np, labels_np, tactical_action_name_list, output_dir=f"output/{model_name}/{model_name}")
+        get_error(outputs_np, labels_np, tactical_action_name_list, output_dir=f"output/{model_name}/{model_name}_only_fine_tuning")
 
 
 def evaluate(model, loader):

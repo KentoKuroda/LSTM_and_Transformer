@@ -13,7 +13,7 @@ import numpy as np
 from datetime import datetime
 import argparse
 
-from LSTM_kuroda import LSTMClassification
+from lstm_kuroda import LSTMClassification
 
 from pathlib import Path
 import sys

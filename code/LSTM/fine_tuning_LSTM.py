@@ -1,8 +1,8 @@
 import torch
 import argparse
 
-from LSTM_kuroda import LSTMClassification
-from train_LSTM import train
+from lstm_kuroda import LSTMClassification
+from train_lstm import train
 
 from pathlib import Path
 import sys

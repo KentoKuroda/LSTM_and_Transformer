@@ -17,11 +17,12 @@ class PositionalEncoding(nn.Module):
 
 # Transformerモデル
 class TransformerClassification(nn.Module):
-    def __init__(self, input_dim, hidden_dim, target_size, num_heads=8, num_layers=2):
+    def __init__(self, input_dim, hidden_dim, target_size, num_heads=4, num_layers=2):
         super(TransformerClassification, self).__init__()
         self.embedding = nn.Linear(input_dim, hidden_dim)
         self.pos_encoder = PositionalEncoding(hidden_dim)
-        encoder_layers = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=num_heads)
+        self.d_model = hidden_dim
+        encoder_layers = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=num_heads, dim_feedforward=4*self.d_model)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers)
         self.fc = nn.Linear(hidden_dim, target_size)
         

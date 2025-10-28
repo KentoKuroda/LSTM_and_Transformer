@@ -49,7 +49,7 @@ def init_dataset(sequence_np, label_np, batch_size, make_graph=False):
         return trainloader, valloader, testloader
 
 
-def googledrive_download(make_graph=False, bepro=False):
+def googledrive_download(make_graph=False, bepro=False, classification=False):
 
     creds = authenticate()
     service = build('drive', 'v3', credentials=creds)
@@ -104,8 +104,12 @@ def googledrive_download(make_graph=False, bepro=False):
 
     else:
         if bepro:
-            bepro_sequence_np_file_name = 'sequence_np.npy'
-            bepro_label_np_file_name = 'label_np.npy'
+            if classification:
+                bepro_sequence_np_file_name = 'sequence_np_including_future_classification.npy'
+                bepro_label_np_file_name = 'label_np_including_future_classification.npy'
+            else:
+                bepro_sequence_np_file_name = 'sequence_np_including_future.npy'
+                bepro_label_np_file_name = 'label_np_including_future.npy'
             sequence_np_file = find_same_match_file(bepro_files, bepro_sequence_np_file_name)
             label_np_file = find_same_match_file(bepro_files, bepro_label_np_file_name)
             sequence_np = read_file(service, sequence_np_file['id'], kind_of_file = 'np')
